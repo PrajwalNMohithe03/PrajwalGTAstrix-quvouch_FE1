@@ -64,7 +64,8 @@ const authSlice = createSlice({
       state.error = null;
     },
     setAccessToken: (state, action) => {
-      state.accessToken = action.payload;
+      state.user = action.payload.user;
+      state.accessToken = action.payload.accessToken;
     },
   },
   extraReducers: (builder) => {
@@ -81,6 +82,7 @@ const authSlice = createSlice({
           roles: action.payload.roles,
         };
         state.accessToken = action.payload.accessToken;
+        localStorage.setItem("accessToken", JSON.stringify(state.accessToken));
         state.error = null;
       })
       .addCase(loginThunk.rejected, (state, action) => {
@@ -112,6 +114,7 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.loading = false;
       state.error = null;
+      localStorage.removeItem("accessToken");
     });
   },
 });

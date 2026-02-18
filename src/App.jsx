@@ -15,16 +15,13 @@ import SalesReport from "./components/dashboards/Sales/SalesReport";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import Unauthorized from "./components/Unauthorized";
 import { ROUTES, USER_ROLES } from "./constants";
+import PublicRoute from "./components/Auth/PublicRoute";
 
 export default function App() {
   const location = useLocation();
 
-   // Public routes only
-  const publicRoutes = [
-    ROUTES.HOME,
-    ROUTES.LOGIN,
-    ROUTES.UNAUTHORIZED,
-  ];
+  // Public routes only
+  const publicRoutes = [ROUTES.HOME, ROUTES.LOGIN, ROUTES.UNAUTHORIZED];
 
   const isPublicRoute = publicRoutes.includes(location.pathname);
 
@@ -34,9 +31,11 @@ export default function App() {
 
       <Routes>
         {/* ================= PUBLIC ROUTES ================= */}
-        <Route path={ROUTES.HOME} element={<Home />} />
-        <Route path={ROUTES.LOGIN} element={<SignupPage />} />
-        <Route path={ROUTES.UNAUTHORIZED} element={<Unauthorized />} />
+        <Route element={<PublicRoute />}>
+          <Route path={ROUTES.HOME} element={<Home />} />
+          <Route path={ROUTES.LOGIN} element={<SignupPage />} />
+          <Route path={ROUTES.UNAUTHORIZED} element={<Unauthorized />} />
+        </Route>
 
         {/* ================= SALES DASHBOARD ================= */}
         <Route
