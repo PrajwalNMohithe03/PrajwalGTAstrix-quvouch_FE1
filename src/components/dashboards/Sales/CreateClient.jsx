@@ -1,8 +1,13 @@
 import { X, UserPlus, Building2, User, MapPin } from "lucide-react";
 import { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { createBusiness } from "../../../features/business/businessThunk";
 
-export default function CreateClient({ open, onClose, onCreate }) {
+export default function CreateClient({ open, onClose, onSuccess }) {
   if (!open) return null;
+
+  const dispatch = useDispatch();
+  const { loading } = useSelector((state) => state.business);
 
   const [form, setForm] = useState({
     name: "",
@@ -18,7 +23,7 @@ export default function CreateClient({ open, onClose, onCreate }) {
 
   const [errors, setErrors] = useState({});
 
-  // 🔎 VALIDATION
+  /* ---------------- VALIDATION ---------------- */
   const validate = () => {
     const e = {};
     Object.keys(form).forEach((key) => {
@@ -28,15 +33,30 @@ export default function CreateClient({ open, onClose, onCreate }) {
     return Object.keys(e).length === 0;
   };
 
-  // ✅ SUBMIT
-  const handleCreate = () => {
+  /* ---------------- SUBMIT ---------------- */
+  const handleCreate = async () => {
     if (!validate()) return;
 
-    onCreate({
-      name: form.name,
-      contact: form.contact,
-      email: form.email,
-    });
+    const payload = {
+      businessName: form.name,
+      businessType: form.industry,
+      address: `${form.street}, ${form.city}, ${form.state} - ${form.zip}`,
+      phoneNumber: form.phone,
+      businessEmail: form.email,
+    };
+
+    try {
+      // ✅ CREATE CLIENT
+      await dispatch(createBusiness(payload)).unwrap();
+
+      // ✅ TELL DASHBOARD TO REFRESH
+      if (onSuccess) onSuccess();
+
+      // ✅ CLOSE MODAL
+      onClose();
+    } catch (err) {
+      console.error("Create client failed:", err);
+    }
   };
 
   const update = (key, value) => {
@@ -104,10 +124,12 @@ export default function CreateClient({ open, onClose, onCreate }) {
             </button>
             <button
               onClick={handleCreate}
+              disabled={loading}
               className="px-5 py-2 rounded-lg bg-purple-600 text-white
+                         disabled:opacity-60 disabled:cursor-not-allowed
                          shadow hover:shadow-[0_0_25px_rgba(168,85,247,0.7)]"
             >
-              Create Client
+              {loading ? "Creating..." : "Create Client"}
             </button>
           </div>
         </div>

@@ -14,28 +14,55 @@ import {
   Scissors,
   Car,
 } from "lucide-react";
-import { useState } from "react";
+import { fetchBusinessById } from "../../../features/business/businessThunk";
+
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+
 import CreateClient from "./CreateClient";
 import { logoutThunk } from "../../../features/auth/authSlice";
-import { useDispatch } from "react-redux";
+import {
+  fetchSalesDashboardThunk,
+  fetchSalesClientsThunk,
+} from "../../../features/sales/salesClientSlice";
 
 export default function Dashboard() {
   const [darkMode, setDarkMode] = useState(false);
   const [createClientOpen, setCreateClientOpen] = useState(false);
+const [search, setSearch] = useState("");
+
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
+  const { dashboard, clients, loading } = useSelector(
+    (state) => state.sales
+  );
+  const filteredClients = clients.filter((client) =>
+  client.businessName?.toLowerCase().includes(search.toLowerCase())
+);
+
+
+  // ✅ SINGLE REFRESH FUNCTION (KEY FIX)
+const refreshDashboard = useCallback(async () => {
+  await dispatch(fetchSalesDashboardThunk()).unwrap();
+  await dispatch(fetchSalesClientsThunk()).unwrap();
+}, [dispatch]);
+
+  // ✅ LOAD DATA ON PAGE LOAD
+  useEffect(() => {
+    refreshDashboard();
+  }, [refreshDashboard]);
+
   const logout = () => {
     dispatch(logoutThunk());
-    navigate(ROUTES.LOGIN, { replace: true });
+    navigate("/login", { replace: true });
   };
 
   return (
     <div className={darkMode ? "dark" : ""}>
-      {/* ============ BACKGROUND GLOW (MATCHES IMAGE) ============ */}
+      {/* ============ BACKGROUND GLOW ============ */}
       <div className="pointer-events-none fixed inset-0 -z-10">
-        {/* Main center glow */}
         <div
           className="absolute inset-0"
           style={{
@@ -43,8 +70,6 @@ export default function Dashboard() {
               "radial-gradient(55% 40% at 50% 30%, rgba(168,85,247,0.18), transparent 70%)",
           }}
         />
-
-        {/* Lower soft wash */}
         <div
           className="absolute inset-0"
           style={{
@@ -109,15 +134,47 @@ export default function Dashboard() {
             Manage your clients and grow your portfolio
           </p>
 
-          {/* STATS */}
+          {loading && (
+            <p className="text-sm text-gray-500 mb-4">
+              Loading dashboard...
+            </p>
+          )}
+
+          {/* ================= STATS ================= */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <StatCard icon={<User />} title="My Clients" value="42" badge="+8 this month" />
-            <StatCard icon={<QrCode />} title="Active QR Codes" value="156" badge="+23 this week" />
-            <StatCard icon={<Star />} title="Total Reviews" value="3,847" badge="+287 this month" />
-            <StatCard icon={<DollarSign />} title="Commission" value="$8,420" badge="+12.5%" />
+          <StatCard
+  icon={<User />}
+  title="My Clients"
+  value={
+    dashboard?.clientsCount ??
+    dashboard?.totalClients ??
+    dashboard?.clients ??
+    clients.length
+  }
+  badge="+8 this month"
+/>
+
+            <StatCard
+              icon={<QrCode />}
+              title="Active QR Codes"
+              value={dashboard?.activeQr || 0}
+              badge="+23 this week"
+            />
+            <StatCard
+              icon={<Star />}
+              title="Total Reviews"
+              value={dashboard?.reviews || 0}
+              badge="+287 this month"
+            />
+            <StatCard
+              icon={<DollarSign />}
+              title="Commission"
+              value={dashboard?.commission || 0}
+              badge="+12.5%"
+            />
           </div>
 
-          {/* ACTIONS */}
+          {/* ================= ACTIONS ================= */}
           <div className="flex gap-4 mb-8">
             <button
               onClick={() => setCreateClientOpen(true)}
@@ -129,56 +186,71 @@ export default function Dashboard() {
               Generate Report
             </button>
           </div>
+{/* ================= MY CLIENTS HEADER ================= */}
+<div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+  <div>
+    <h2 className="text-xl font-semibold flex items-center gap-2">
+      <User className="text-purple-600" size={20} />
+      My Clients
+    </h2>
+    <p className="text-sm text-gray-500">
+      Manage and monitor all your clients
+    </p>
+  </div>
 
-          {/* CLIENT LIST */}
-          <div className="space-y-4">
-            <ClientCard
-              icon={<Utensils />}
-              color="from-orange-500 to-red-500"
-              name="Bella Vista Restaurant"
-              contact="Sarah Johnson"
-              email="sarah@bellavista.com"
-              status="active"
-              qr="5 QR Codes"
-              reviews="287 Reviews"
-            />
-            <ClientCard
-              icon={<Stethoscope />}
-              color="from-blue-500 to-indigo-500"
-              name="Bright Smile Dental"
-              contact="Dr. Michael Chen"
-              email="mchen@brightsmile.com"
-              status="active"
-              qr="3 QR Codes"
-              reviews="156 Reviews"
-            />
-            <ClientCard
-              icon={<Scissors />}
-              color="from-pink-500 to-purple-500"
-              name="Luxe Hair Studio"
-              contact="Amanda Rodriguez"
-              email="amanda@luxehair.com"
-              status="active"
-              qr="4 QR Codes"
-              reviews="198 Reviews"
-            />
-            <ClientCard
-              icon={<Car />}
-              color="from-yellow-500 to-orange-500"
-              name="Premium Auto Care"
-              contact="James Wilson"
-              email="james@premiumauto.com"
-              status="pending"
-              qr="2 QR Codes"
-              reviews="89 Reviews"
-            />
-          </div>
+  <div className="mt-3 md:mt-0 relative">
+    <input
+      type="text"
+      placeholder="Search clients..."
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      className="pl-9 pr-4 py-2 border rounded-lg text-sm
+                 focus:outline-none focus:ring-2 focus:ring-purple-500
+                 bg-white/70 dark:bg-white/5"
+    />
+    <svg
+      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+      width="16"
+      height="16"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <path
+        stroke="currentColor"
+        strokeWidth="2"
+        d="M21 21l-4.35-4.35m1.6-5.65a7 7 0 11-14 0 7 7 0 0114 0z"
+      />
+    </svg>
+  </div>
+</div>
+{/* ================= CLIENT LIST ================= */}
+<div className="space-y-4">
+  {filteredClients.map((client) => (
+
+    <ClientCard
+      key={client.businessId}
+      businessId={client.businessId}   // 👈 ADD THIS LINE
+      icon={<Briefcase />}
+      color="from-purple-500 to-indigo-500"
+      name={client.businessName}
+      contact={client.businessType}
+     email={client.businessEmail}   
+      status={client.status ?? "active"}
+      qr="0 QR Codes"
+      reviews="0 Reviews"
+    />
+  ))}
+</div>
+
+
         </main>
       </div>
 
+      {/* ================= CREATE CLIENT MODAL ================= */}
       <CreateClient
         open={createClientOpen}
         onClose={() => setCreateClientOpen(false)}
+        onSuccess={refreshDashboard}
       />
     </div>
   );
@@ -204,46 +276,81 @@ function StatCard({ icon, title, value, badge }) {
   );
 }
 
-function ClientCard({ icon, color, name, contact, email, status, qr, reviews }) {
+function ClientCard({
+  businessId,
+  icon,
+  color,
+  name,
+  contact,
+  email,
+  status,
+  qr,
+  reviews,
+}) {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  const handleView = async () => {
+    try {
+      await dispatch(fetchBusinessById(businessId)).unwrap();
+      navigate(`/business/${businessId}`);
+    } catch (err) {
+      console.error("Failed to fetch business", err);
+    }
+  };
+
   return (
-    <div className="relative bg-white/70 dark:bg-white/5 backdrop-blur rounded-xl p-5 flex items-center justify-between border border-purple-200/40 dark:border-white/10">
+    <div className="relative bg-white/70 dark:bg-white/5 backdrop-blur rounded-xl p-5 border border-purple-200/40 dark:border-white/10">
       <div className="absolute inset-0 bg-purple-500/10 blur-xl rounded-xl -z-10" />
 
-      <div className="flex gap-4 w-1/3">
-        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${color} text-white flex items-center justify-center`}>
-          {icon}
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold">{name}</h3>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full ${
-                status === "active"
-                  ? "bg-green-100 text-green-600"
-                  : "bg-yellow-100 text-yellow-600"
-              }`}
-            >
-              {status}
-            </span>
+      <div className="flex items-center justify-between">
+        {/* LEFT */}
+        <div className="flex gap-4 items-start w-2/3">
+          <div
+            className={`w-12 h-12 rounded-xl bg-gradient-to-br ${color} text-white flex items-center justify-center`}
+          >
+            {icon}
           </div>
-          <p className="text-sm text-gray-500">{contact}</p>
-          <p className="text-xs text-gray-400">{qr}</p>
+
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold">{name}</h3>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-600">
+                {status}
+              </span>
+              <span className="text-xs text-gray-400">
+                C-{Math.floor(Math.random() * 900 + 100)}
+              </span>
+            </div>
+
+            <p className="text-sm text-gray-500">{contact}</p>
+
+            <div className="flex gap-4 text-xs text-gray-400 mt-1">
+              <span>{qr}</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div className="w-1/3 text-sm text-gray-500 space-y-1">
-        <p>{email}</p>
-        <p>{reviews}</p>
-      </div>
+        {/* MIDDLE */}
+        <div className="hidden md:flex flex-col text-sm text-gray-500 w-1/4">
+          <p>{email}</p>
+          <p className="mt-1">{reviews}</p>
+        </div>
 
-      <div className="flex gap-3">
-        <button className="border px-3 py-1 rounded-lg text-purple-600 text-sm hover:bg-purple-50">
-          Assign QR
-        </button>
-        <button className="border px-3 py-1 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-50">
-          <Eye size={16} />
-          View
-        </button>
+        {/* RIGHT */}
+        <div className="flex gap-3">
+          <button className="border px-2 py-0.5 rounded-md text-xs text-purple-600 hover:bg-purple-50 whitespace-nowrap">
+            Assign QR
+          </button>
+
+          <button
+            onClick={handleView}
+            className="border px-3 py-1 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-50"
+          >
+            <Eye size={16} />
+            View
+          </button>
+        </div>
       </div>
     </div>
   );

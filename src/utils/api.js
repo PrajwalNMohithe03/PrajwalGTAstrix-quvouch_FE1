@@ -3,36 +3,58 @@ import { refreshThunk } from "../features/auth/authSlice";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
-  withCredentials: true, // needed for refresh cookie
+  withCredentials: true,
 });
 
-let _store;
+let store;
+let refreshPromise = null;
 
-export const injectStore = (store) => {
-  _store = store;
+// 🔓 Public endpoints (no auth, no refresh)
+const PUBLIC_ENDPOINTS = [
+  "/api/v1/qr",        // customer review
+];
+export const getBusinessByIdApi = async (id) => {
+  const res = await api.get(`/api/v1/business/${id}`);
+  return res.data;
+};
 
-  // Attach access token on every request
+export const injectStore = (_store) => {
+  store = _store;
+
+  // ================= REQUEST INTERCEPTOR =================
   api.interceptors.request.use((config) => {
-    const token = _store.getState().auth.accessToken;
+    const token = store.getState().auth.accessToken;
+
+    // 🔐 Attach token only if exists
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   });
 
-  // Prevent multiple refresh calls in parallel
-  let refreshPromise = null;
-
+  // ================= RESPONSE INTERCEPTOR =================
   api.interceptors.response.use(
     (response) => response,
     async (error) => {
       const original = error.config;
+      const url = original?.url || "";
 
-      if (error?.response?.status === 401 && !original._retry) {
+      // 🚫 Skip refresh logic for PUBLIC APIs
+      const isPublic = PUBLIC_ENDPOINTS.some((path) =>
+        url.includes(path)
+      );
+
+      if (
+        error.response?.status === 401 &&
+        !original._retry &&
+        !isPublic
+      ) {
         original._retry = true;
 
+        // 🔒 Single refresh lock
         if (!refreshPromise) {
-          refreshPromise = _store
+          refreshPromise = store
             .dispatch(refreshThunk())
             .unwrap()
             .finally(() => {
@@ -42,15 +64,13 @@ export const injectStore = (store) => {
 
         try {
           await refreshPromise;
-          // retry the original request (request interceptor adds new token)
-          return api(original);
-        } catch (e) {
-          // refresh failed, user will be treated as logged out
+          return api(original); // retry AFTER refresh
+        } catch {
           return Promise.reject(error);
         }
       }
 
       return Promise.reject(error);
-    },
+    }
   );
 };

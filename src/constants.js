@@ -14,4 +14,11 @@ export const ROUTES = {
     NEW_CLIENT: '/sales/new-client',
     SALES_REPORT: '/sales/report',
     CLIENT_DASHBOARD: '/client',
-}
+
+
+ // ✅ CUSTOMER (PUBLIC – QR FLOW)
+  CUSTOMER: "/customer",
+  CUSTOMER_REVIEW: "/customer/review/:qrCodeId",
+};
+
+

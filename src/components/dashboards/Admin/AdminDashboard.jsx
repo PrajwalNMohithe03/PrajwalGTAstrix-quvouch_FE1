@@ -123,7 +123,7 @@ export default function AdminDashboard() {
               onClick={() => setDark(!dark)}
               className="w-9 h-9 rounded-lg flex items-center justify-center text-purple-500 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition"
             >
-              {dark ? <Moon size={18} /> : <Sun size={18} />}
+              {dark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
             {/* Settings icon restored */}

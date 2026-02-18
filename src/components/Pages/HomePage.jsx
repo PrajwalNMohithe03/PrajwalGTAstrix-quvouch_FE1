@@ -1,6 +1,6 @@
 import Hero from "../Herosection/HeroSection";
 import Stats from "../Stats";
-import Features from "../Features";
+import Features from "../Feature";
 import HowItWorks from  "../Howitworks";
 import Testimonials from "../Reviews";
 import Pricing from "../PricingPage";

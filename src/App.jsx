@@ -15,6 +15,9 @@ import SalesReport from "./components/dashboards/Sales/SalesReport";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import Unauthorized from "./components/Unauthorized";
 import { ROUTES, USER_ROLES } from "./constants";
+import CustomerDashboard from  "./components/Pages/customer/CustomerDashboard";
+import CustomerReview from "./components/Pages/customer/CustomerReview";
+import BusinessDetails from "./components/Pages/BusinessDetails";
 
 export default function App() {
   const location = useLocation();
@@ -37,6 +40,13 @@ export default function App() {
         <Route path={ROUTES.HOME} element={<Home />} />
         <Route path={ROUTES.LOGIN} element={<SignupPage />} />
         <Route path={ROUTES.UNAUTHORIZED} element={<Unauthorized />} />
+        <Route path="/business/:id" element={<BusinessDetails />} />
+        {/* ================= CUSTOMER (PUBLIC – NO AUTH) ================= */}
+        <Route path={ROUTES.CUSTOMER} element={<CustomerDashboard />} />
+        <Route
+          path={ROUTES.CUSTOMER_REVIEW}
+          element={<CustomerReview />}
+        />
 
         {/* ================= SALES DASHBOARD ================= */}
         <Route
