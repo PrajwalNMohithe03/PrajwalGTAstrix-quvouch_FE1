@@ -1,14 +1,17 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { api } from "../../utils/api";
 
+// 🔥 Restore token from localStorage on app start
+const savedToken = localStorage.getItem("accessToken");
+
 const initialState = {
   user: null,
-  accessToken: null, // in-memory only
-  loading: false, // important: true on start, to prevent route flicker
+  accessToken: savedToken ? JSON.parse(savedToken) : null,
+  loading: false,
   error: null,
 };
 
-// LOGIN: backend returns { accessToken, user } and sets refresh cookie (HttpOnly)
+// ================= LOGIN =================
 export const loginThunk = createAsyncThunk(
   "auth/login",
   async ({ email, password }, { rejectWithValue }) => {
@@ -16,16 +19,16 @@ export const loginThunk = createAsyncThunk(
       const res = await api.post(
         "/jwt/login",
         { username: email, password },
-        { withCredentials: true },
+        { withCredentials: true }
       );
       return res.data; // { accessToken, user }
     } catch (err) {
       return rejectWithValue(err?.response?.data?.message || "Login failed");
     }
-  },
+  }
 );
 
-// REFRESH: uses HttpOnly refresh cookie, returns new { accessToken, user }
+// ================= REFRESH =================
 export const refreshThunk = createAsyncThunk(
   "auth/refresh",
   async (_, { rejectWithValue }) => {
@@ -37,10 +40,10 @@ export const refreshThunk = createAsyncThunk(
     } catch (err) {
       return rejectWithValue("Session expired");
     }
-  },
+  }
 );
 
-// LOGOUT: clears refresh cookie server-side
+// ================= LOGOUT =================
 export const logoutThunk = createAsyncThunk(
   "auth/logout",
   async (_, { rejectWithValue }) => {
@@ -50,7 +53,7 @@ export const logoutThunk = createAsyncThunk(
     } catch (err) {
       return rejectWithValue("Logout failed");
     }
-  },
+  }
 );
 
 const authSlice = createSlice({
@@ -62,59 +65,68 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.loading = false;
       state.error = null;
-    },
-    setAccessToken: (state, action) => {
-      state.accessToken = action.payload;
+      localStorage.removeItem("accessToken");
     },
   },
   extraReducers: (builder) => {
-    // login
+    // LOGIN
     builder
       .addCase(loginThunk.pending, (state) => {
-        state.error = null;
         state.loading = true;
+        state.error = null;
       })
       .addCase(loginThunk.fulfilled, (state, action) => {
         state.loading = false;
+
         state.user = {
           userId: action.payload.userId,
           roles: action.payload.roles,
         };
+
         state.accessToken = action.payload.accessToken;
-        state.error = null;
+
+        // 🔥 Save token
+        localStorage.setItem(
+          "accessToken",
+          JSON.stringify(action.payload.accessToken)
+        );
       })
       .addCase(loginThunk.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || "Login failed";
+        state.error = action.payload;
       });
 
-    // refresh / bootstrap
+    // REFRESH
     builder
-      .addCase(refreshThunk.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
       .addCase(refreshThunk.fulfilled, (state, action) => {
         state.user = action.payload.user;
         state.accessToken = action.payload.accessToken;
+
+        // 🔥 Save refreshed token
+        localStorage.setItem(
+          "accessToken",
+          JSON.stringify(action.payload.accessToken)
+        );
+
         state.loading = false;
-        state.error = null;
       })
       .addCase(refreshThunk.rejected, (state) => {
         state.user = null;
         state.accessToken = null;
         state.loading = false;
+        localStorage.removeItem("accessToken");
       });
 
-    //logout
+    // LOGOUT
     builder.addCase(logoutThunk.fulfilled, (state) => {
       state.user = null;
       state.accessToken = null;
       state.loading = false;
       state.error = null;
+      localStorage.removeItem("accessToken");
     });
   },
 });
 
-export const { clearAuth, setAccessToken } = authSlice.actions;
+export const { clearAuth } = authSlice.actions;
 export default authSlice.reducer;

@@ -1,6 +1,5 @@
 import {
   Star,
-  QrCode,
   Eye,
   BarChart3,
   Download,
@@ -9,299 +8,339 @@ import {
   LogOut,
   Sun,
   Moon,
+  QrCode,
 } from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { logoutThunk } from "../../../features/auth/authSlice";
-import { api } from "../../../utils/api";
+
+import {
+  fetchOwnBusiness,
+  fetchDashboard,
+  fetchReviews,
+  fetchAnalytics,
+  exportBusinessReviews,
+  shareBusinessReviews,
+  downloadBusinessQr,
+} from "../../../features/clientBusiness/clientBusinessThunk";
 
 export default function ReviewDashboard() {
-  const navigate = useNavigate();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const [dark, setDark] = useState(false);
-  const [businessId, setBusinessId] = useState(null);
-  const [dashboardData, setDashboardData] = useState(null);
-  const [analyticsData, setAnalyticsData] = useState(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
-  /* ================= FETCH BUSINESS ================= */
+  const [qrPreview, setQrPreview] = useState(null);
+  const [qrId, setQrId] = useState(null);
+  const [showQrSection, setShowQrSection] = useState(false);
 
-  useEffect(() => {
-    fetchBusiness();
-  }, []);
+  const {
+    ownBusiness,
+    dashboard,
+    reviews,
+    analytics,
+    loading,
+  } = useSelector((state) => state.clientBusiness);
 
-  const fetchBusiness = async () => {
-    try {
-      const res = await api.get("/api/v1/business/own");
-
-      if (res.data?.businessId) {
-        setBusinessId(res.data.businessId);
-      }
-
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        setBusinessId(res.data[0].businessId);
-      }
-
-    } catch (err) {
-      console.error("Business fetch error:", err);
-    }
-  };
-
-  /* ================= FETCH DASHBOARD ================= */
+  /* ================= INITIAL LOAD ================= */
 
   useEffect(() => {
-    if (businessId) {
-      fetchDashboard();
+    dispatch(fetchOwnBusiness());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (ownBusiness?.businessId) {
+      dispatch(fetchDashboard(ownBusiness.businessId));
+      dispatch(fetchReviews());
     }
-  }, [businessId]);
+  }, [ownBusiness, dispatch]);
 
-  const fetchDashboard = async () => {
-    try {
-      const res = await api.get(
-        `/api/v1/business/dashboard/${businessId}`
-      );
-      setDashboardData(res.data);
-    } catch (err) {
-      console.error("Dashboard Error:", err);
-    }
-  };
+  /* ================= ACTIONS ================= */
 
-  /* ================= EXPORT ================= */
+  const handleExport = async () => {
+    if (!ownBusiness?.businessId) return;
 
-  const exportReviews = async () => {
-    if (!businessId) return;
+    const blob = await dispatch(
+      exportBusinessReviews(ownBusiness.businessId)
+    ).unwrap();
 
-    const res = await api.get(
-      `/api/v1/business/export/${businessId}`,
-      { responseType: "blob" }
-    );
-
-    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const url = window.URL.createObjectURL(new Blob([blob]));
     const link = document.createElement("a");
     link.href = url;
     link.setAttribute("download", "reviews.csv");
-    document.body.appendChild(link);
     link.click();
   };
 
-  /* ================= SHARE ================= */
+  const handleShare = async () => {
+    if (!ownBusiness?.businessId) return;
 
-  const shareReviews = async () => {
-    if (!businessId) return;
+    const link = await dispatch(
+      shareBusinessReviews(ownBusiness.businessId)
+    ).unwrap();
 
-    const res = await api.get(
-      `/api/v1/business/share/${businessId}`
-    );
-
-    navigator.clipboard.writeText(res.data);
+    navigator.clipboard.writeText(link);
     alert("Share link copied!");
   };
 
-  /* ================= ANALYTICS ================= */
+  const handleAnalytics = async () => {
+    if (!ownBusiness?.businessId) return;
 
-  const viewAnalytics = async () => {
-    if (!businessId) return;
+    await dispatch(
+      fetchAnalytics(ownBusiness.businessId)
+    ).unwrap();
 
-    const res = await api.get(
-      `/api/v1/business/analytics/${businessId}`
-    );
-
-    setAnalyticsData(res.data);
+    setShowAnalytics(true);
   };
 
-  /* ================= LOGOUT ================= */
+  const handleActiveQrClick = async () => {
+    if (!ownBusiness?.businessId) return;
 
-  const logout = () => {
-    dispatch(logoutThunk());
+    const blob = await dispatch(
+      downloadBusinessQr(ownBusiness.businessId)
+    ).unwrap();
+
+    const imageUrl = URL.createObjectURL(new Blob([blob]));
+
+    setQrPreview(imageUrl);
+    setQrId(ownBusiness.businessId); // replace if backend returns qrId
+    setShowQrSection(true);
+  };
+
+  const handleLogout = async () => {
+    await dispatch(logoutThunk());
     navigate("/login");
   };
 
+  if (loading) {
+    return (
+      <div className="text-center mt-20 text-lg font-semibold">
+        Loading dashboard...
+      </div>
+    );
+  }
+
   return (
-    <div className={`${dark ? "bg-[#05050f] text-gray-200" : "bg-[#f7f5ff] text-gray-800"} min-h-screen relative overflow-hidden`}>
+    <div className={`${dark ? "dark" : ""}`}>
+      <div className="min-h-screen bg-[#faf7ff] dark:bg-[#0b0b14] text-gray-800 dark:text-gray-100">
 
-      {/* Glow Background */}
-      <div className="absolute inset-0 -z-10">
-        <div className={`absolute top-[-200px] left-1/2 -translate-x-1/2 w-[900px] h-[400px] rounded-full blur-[120px] ${
-          dark ? "bg-purple-600/20" : "bg-purple-400/20"
-        }`} />
-        <div className={`absolute bottom-[-150px] right-[-100px] w-[700px] h-[400px] rounded-full blur-[120px] ${
-          dark ? "bg-indigo-500/20" : "bg-indigo-400/20"
-        }`} />
-      </div>
+        {/* ================= HEADER ================= */}
+        <header className="sticky top-0 z-20 bg-white/80 dark:bg-black/40 backdrop-blur border-b border-purple-200/40 dark:border-white/10 h-16">
+          <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
 
-<header
-  className={`sticky top-0 z-20 backdrop-blur h-16 border-b ${
-    dark
-      ? "bg-black/40 border-purple-500/20"
-      : "bg-white/70 border-purple-200"
-  }`}
->
-  <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
+            {/* Logo */}
+            <div className="flex items-center gap-2 font-semibold text-lg">
+              <QrCode className="text-purple-600" size={20} />
+              Qu<span className="text-purple-600">vouch</span>
+            </div>
 
-    {/* Logo */}
-    <div className="flex items-center gap-2 font-semibold">
-      <div className="w-9 h-9 rounded-lg bg-purple-600 text-white flex items-center justify-center">
-        <QrCode size={18} />
-      </div>
-      <span>
-        Qu<span className="text-purple-500">vouch</span>
-      </span>
-    </div>
+            {/* Right Controls */}
+            <div className="flex items-center gap-4">
 
-    {/* Right Side Actions */}
-    <div className="flex items-center gap-4">
+              <button
+                onClick={() => setDark(!dark)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10"
+              >
+                {dark ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
 
-      {/* Dark Toggle */}
-      <button
-        onClick={() => setDark(!dark)}
-        className="p-2 rounded-lg hover:bg-purple-500/10 transition"
-      >
-        {dark ? <Sun size={18} /> : <Moon size={18} />}
-      </button>
+              <button className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-100 text-purple-700 text-sm font-medium">
+                Client Dashboard
+              </button>
 
-      {/* Client Dashboard Button */}
-      <button
-        className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
-          dark
-            ? "bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30"
-            : "bg-purple-100 hover:bg-purple-200 border border-purple-200"
-        }`}
-      >
-        <BarChart3 size={16} />
-        Client Dashboard
-      </button>
+              <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10">
+                <Settings size={18} />
+              </button>
 
-      {/* Settings Icon */}
-      <button
-        className="p-2 rounded-lg hover:bg-purple-500/10 transition"
-      >
-        <Settings size={18} />
-      </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-200 text-purple-600 text-sm font-medium"
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
 
-      {/* Logout */}
-      <button
-        onClick={logout}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition ${
-          dark
-            ? "border-purple-500/30 hover:border-purple-500/60"
-            : "border-purple-300 hover:border-purple-500"
-        }`}
-      >
-        <LogOut size={16} />
-        Logout
-      </button>
-
-    </div>
-  </div>
-</header>
-
-
-      {/* CONTENT */}
-      <main className="max-w-7xl mx-auto px-6 py-10 space-y-10">
-
-        <div>
-          <h1 className="text-4xl font-bold flex items-center gap-3">
-            Your Review Dashboard
-            <BarChart3 className="text-purple-500" />
-          </h1>
-        </div>
-
-        {/* STATS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Stat dark={dark} icon={<Star />} title="Total Reviews" value={dashboardData?.totalReviews ?? 0} />
-          <Stat dark={dark} icon={<Star />} title="Average Rating" value={dashboardData?.averageRating ?? 0} />
-          <Stat dark={dark} icon={<Eye />} title="Total Scans" value={dashboardData?.totalScans ?? 0} />
-          <Stat dark={dark} icon={<QrCode />} title="Active QR Codes" value={dashboardData?.activeQrCodes ?? 0} />
-        </div>
-
-        {/* MIDDLE */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          <div className={`rounded-2xl p-6 border ${
-            dark
-              ? "bg-[#0f0f1f] border-purple-500/20"
-              : "bg-white/70 backdrop-blur border-purple-200"
-          }`}>
-            <h3 className="font-semibold mb-6">Rating Distribution</h3>
-
-            {dashboardData?.ratingDistribution?.map((r) => (
-              <div key={r.stars} className="flex items-center gap-3 mb-3">
-                <span className="w-6 text-purple-500">{r.stars}★</span>
-                <div className={`flex-1 h-2 rounded ${dark ? "bg-white/10" : "bg-purple-100"}`}>
-                  <div
-                    className="h-2 rounded bg-purple-500"
-                    style={{
-                      width: `${(r.count /
-                        Math.max(
-                          ...dashboardData.ratingDistribution.map((d) => d.count),
-                          1
-                        )) *
-                        100}%`,
-                    }}
-                  />
-                </div>
-                <span className="text-xs">{r.count}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className={`lg:col-span-2 rounded-2xl p-6 border ${
-            dark
-              ? "bg-[#0f0f1f] border-purple-500/20"
-              : "bg-white/70 backdrop-blur border-purple-200"
-          }`}>
-            <h3 className="font-semibold mb-6">Quick Actions</h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <Action dark={dark} icon={<Download />} title="Export Reviews" onClick={exportReviews} />
-              <Action dark={dark} icon={<Share2 />} title="Share Reviews" onClick={shareReviews} />
-              <Action dark={dark} icon={<BarChart3 />} title="View Analytics" highlight onClick={viewAnalytics} />
             </div>
           </div>
-        </div>
-      </main>
-    </div>
-  );
-}
+        </header>
 
-/* COMPONENTS */
+        {/* ================= MAIN ================= */}
+        <main className="max-w-7xl mx-auto px-6 py-10 space-y-10">
 
-function Stat({ icon, title, value, dark }) {
-  return (
-    <div className={`p-6 rounded-2xl border transition ${
-      dark
-        ? "bg-[#0f0f1f] border-purple-500/20 hover:shadow-[0_0_30px_rgba(168,85,247,0.25)]"
-        : "bg-white/70 backdrop-blur border-purple-200 hover:shadow-[0_10px_40px_rgba(168,85,247,0.25)]"
-    }`}>
-      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white mb-4">
-        {icon}
+          {/* TITLE */}
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              Your Review Dashboard
+              <BarChart3 className="text-purple-600" />
+            </h1>
+            <p className="text-gray-500">
+              Monitor and manage all customer reviews collected via Quvouch
+            </p>
+          </div>
+
+          {/* ================= STATS ================= */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <Stat
+              title="Total Reviews"
+              value={dashboard?.totalReviews ?? 0}
+              icon={<Star />}
+            />
+
+            <Stat
+              title="Average Rating"
+              value={dashboard?.averageRating ?? 0}
+              icon={<Star />}
+            />
+
+            <Stat
+              title="Total Scans"
+              value={dashboard?.totalScans ?? 0}
+              icon={<Eye />}
+            />
+
+            <Stat
+              title="Active QR Codes"
+              value={dashboard?.activeQrCodes ?? 0}
+              icon={<QrCode />}
+              onClick={handleActiveQrClick}
+            />
+
+          </div>
+
+          {/* ================= MIDDLE SECTION ================= */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* Rating Distribution */}
+            <div className="bg-white/70 dark:bg-white/5 p-6 rounded-xl border">
+              <h3 className="font-semibold mb-4">
+                Rating Distribution
+              </h3>
+
+              {[5,4,3,2,1].map((star) => (
+                <RatingRow
+                  key={star}
+                  star={star}
+                  value={dashboard?.[`${["","one","two","three","four","five"][star]}Star`] ?? 0}
+                />
+              ))}
+            </div>
+
+            {/* Quick Actions */}
+            <div className="lg:col-span-2 bg-white/70 dark:bg-white/5 p-6 rounded-xl border">
+              <h3 className="font-semibold mb-4">
+                Quick Actions
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Action title="Export Reviews" icon={<Download />} onClick={handleExport} />
+                <Action title="Share Reviews" icon={<Share2 />} onClick={handleShare} />
+                <Action title="View Analytics" icon={<BarChart3 />} onClick={handleAnalytics} />
+              </div>
+            </div>
+          </div>
+
+          {/* ================= QR SECTION ================= */}
+          {showQrSection && qrPreview && (
+            <div className="bg-white/70 dark:bg-white/5 p-8 rounded-xl border text-center">
+              <h3 className="text-xl font-semibold mb-4">
+                Active QR Code
+              </h3>
+
+              <img
+                src={qrPreview}
+                alt="QR Code"
+                className="mx-auto w-56 h-56 rounded-lg border"
+              />
+
+              <p className="mt-4 text-sm text-gray-500">
+                QR Code ID: <span className="font-medium">{qrId}</span>
+              </p>
+
+              <button
+                onClick={() => {
+                  const link = document.createElement("a");
+                  link.href = qrPreview;
+                  link.download = "qrcode.png";
+                  link.click();
+                }}
+                className="mt-6 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Download QR Code
+              </button>
+            </div>
+          )}
+
+        </main>
+
+        {/* ================= ANALYTICS MODAL ================= */}
+        {showAnalytics && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+            <div className="bg-white dark:bg-[#0f0f1f] p-8 rounded-xl w-[500px]">
+              <h2 className="text-xl font-bold mb-6">
+                Analytics
+              </h2>
+              <p>Total Reviews: {analytics?.totalReviews}</p>
+              <p>Average Rating: {analytics?.averageRating}</p>
+              <p>Total Scans: {analytics?.totalScans}</p>
+
+              <button
+                onClick={() => setShowAnalytics(false)}
+                className="mt-6 px-4 py-2 bg-purple-600 text-white rounded-lg"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
-      <p className="text-sm text-gray-400">{title}</p>
-      <h3 className="text-3xl font-bold">{value}</h3>
     </div>
   );
 }
 
-function Action({ icon, title, highlight, onClick, dark }) {
+/* ================= COMPONENTS ================= */
+
+function Stat({ title, value, icon, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`cursor-pointer p-6 rounded-2xl border transition ${
-        dark
-          ? highlight
-            ? "bg-gradient-to-br from-green-500/20 to-green-500/10 border-purple-500/20"
-            : "bg-gradient-to-br from-purple-500/20 to-indigo-500/10 border-purple-500/20"
-          : highlight
-            ? "bg-gradient-to-br from-green-200/70 to-green-100 border-purple-200"
-            : "bg-gradient-to-br from-purple-200/60 to-white border-purple-200"
+      className={`p-6 rounded-xl border bg-white/70 dark:bg-white/5 ${
+        onClick ? "cursor-pointer hover:shadow-md" : ""
       }`}
     >
-      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white mb-4">
-        {icon}
+      <div className="mb-3 text-purple-600">{icon}</div>
+      <p className="text-sm text-gray-500">{title}</p>
+      <h3 className="text-2xl font-bold">{value}</h3>
+    </div>
+  );
+}
+
+function Action({ title, icon, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      className="cursor-pointer p-5 rounded-xl border bg-gradient-to-br from-purple-100 to-white dark:from-white/10 dark:to-white/5 hover:shadow-md"
+    >
+      <div className="mb-3 text-purple-600">{icon}</div>
+      <p className="font-medium">{title}</p>
+    </div>
+  );
+}
+
+function RatingRow({ star, value }) {
+  return (
+    <div className="flex items-center gap-3 mb-2">
+      <span className="w-6">{star}★</span>
+      <div className="flex-1 h-2 rounded bg-gray-200 dark:bg-white/10">
+        <div
+          className="h-2 rounded bg-purple-500"
+          style={{ width: `${value}%` }}
+        />
       </div>
-      <p className="font-semibold">{title}</p>
+      <span className="text-xs w-8 text-right">{value}</span>
     </div>
   );
 }

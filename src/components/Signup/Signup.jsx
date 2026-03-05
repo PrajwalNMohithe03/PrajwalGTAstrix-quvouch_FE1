@@ -1,19 +1,16 @@
-import SignupForm from "./SignupLeft";
+import { useState } from "react";
+import { USER_ROLES } from "../../constants";
+import SignupLeft from "./SignupLeft";
 import SignupRightPanel from "./SignupRight";
 
+export default function SignupPage() {
 
-export default function Signup() {
+  const [role, setRole] = useState(USER_ROLES.SALE_REPRESENTATIVE);
+
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-white dark:bg-gray-950">
-
-      {/* LEFT PANEL */}
-      <div className="flex items-center justify-center px-6 py-12">
-        <SignupForm />
-      </div>
-
-      {/* RIGHT PANEL */}
-      <SignupRightPanel />
-
+    <div className="grid grid-cols-1 lg:grid-cols-2 min-h-screen">
+      <SignupLeft role={role} setRole={setRole} />
+      <SignupRightPanel role={role} />
     </div>
   );
 }

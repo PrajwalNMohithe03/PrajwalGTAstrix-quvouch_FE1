@@ -9,38 +9,36 @@ export const api = axios.create({
 let store;
 let refreshPromise = null;
 
-// 🔓 Public endpoints (no auth, no refresh)
 const PUBLIC_ENDPOINTS = [
-  "/api/v1/qr",        // customer review
+  "/api/v1/qr",
 ];
-export const getBusinessByIdApi = async (id) => {
-  const res = await api.get(`/api/v1/business/${id}`);
-  return res.data;
-};
 
 export const injectStore = (_store) => {
   store = _store;
 
-  // ================= REQUEST INTERCEPTOR =================
-  api.interceptors.request.use((config) => {
-    const token = store.getState().auth.accessToken;
+  // ================= REQUEST =================
+api.interceptors.request.use((config) => {
+  const token = store.getState().auth.accessToken;
 
-    // 🔐 Attach token only if exists
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
+  // 🔥 Do NOT attach access token to refresh endpoint
+  if (config.url.includes("/jwt/refresh")) {
     return config;
-  });
+  }
 
-  // ================= RESPONSE INTERCEPTOR =================
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+  // ================= RESPONSE =================
   api.interceptors.response.use(
     (response) => response,
     async (error) => {
       const original = error.config;
       const url = original?.url || "";
 
-      // 🚫 Skip refresh logic for PUBLIC APIs
       const isPublic = PUBLIC_ENDPOINTS.some((path) =>
         url.includes(path)
       );
@@ -52,7 +50,6 @@ export const injectStore = (_store) => {
       ) {
         original._retry = true;
 
-        // 🔒 Single refresh lock
         if (!refreshPromise) {
           refreshPromise = store
             .dispatch(refreshThunk())
@@ -64,7 +61,7 @@ export const injectStore = (_store) => {
 
         try {
           await refreshPromise;
-          return api(original); // retry AFTER refresh
+          return api(original);
         } catch {
           return Promise.reject(error);
         }

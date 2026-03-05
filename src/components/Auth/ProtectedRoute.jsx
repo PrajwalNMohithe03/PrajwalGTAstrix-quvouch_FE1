@@ -1,4 +1,3 @@
-import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import Loading from "../Loading";
@@ -15,9 +14,7 @@ export default function ProtectedRoute({
   const { user, loading } = useSelector((state) => state.auth);
 
   if (loading) {
-    return (
-      <Loading />
-    );
+    return <Loading />;
   }
   if (!user) {
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
